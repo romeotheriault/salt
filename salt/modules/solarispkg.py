@@ -2,7 +2,8 @@
 Package support for Solaris
 '''
 
-import re
+import tempfile
+import os
 
 
 def __virtual__():
@@ -23,28 +24,6 @@ def _list_removed(old, new):
         if pkg not in new:
             pkgs.append(pkg)
 
-    return pkgs
-
-
-def _compare_versions(old, new):
-    '''
-    Returns a dict that that displays old and new versions for a package after
-    install/upgrade of package.
-    '''
-    pkgs = {}
-    for npkg in new:
-        if npkg in old:
-            if old[npkg] == new[npkg]:
-                # no change in the package
-                continue
-            else:
-                # the package was here before and the version has changed
-                pkgs[npkg] = {'old': old[npkg],
-                              'new': new[npkg]}
-        else:
-            # the package is freshly installed
-            pkgs[npkg] = {'old': '',
-                          'new': new[npkg]}
     return pkgs
 
 
@@ -72,23 +51,7 @@ def list_pkgs():
 
         salt '*' pkg.list_pkgs
     '''
-    #return _format_pkgs(_get_pkgs())
     return _get_pkgs()
-
-
-def available_version(name):
-    '''
-    The available version of the package in the repository
-
-    CLI Example::
-
-        salt '*' pkg.available_version <package name>
-    '''
-    cmd = 'pkg_info -q -I {0}'.format(name)
-    namever = _splitpkg(__salt__['cmd.run'](cmd))
-    if namever:
-        return namever[1]
-    return ''
 
 
 def version(name):
@@ -106,9 +69,12 @@ def version(name):
     return ''
 
 
-def install(name, *args, **kwargs):
+def install(name, **kwargs):
     '''
     Install the passed package
+
+    # pkgadd -n -a /root/admin.file -d /root/testing/ZABagent2.pkg 'all'
+    # Does this work with non-datastream packages?
 
     Return a dict containing the new package names and versions::
 
@@ -119,20 +85,117 @@ def install(name, *args, **kwargs):
 
         salt '*' pkg.install <package name>
     '''
-    old = _get_pkgs()
-    stem, flavor = (name.split('--') + [''])[:2]
-    name = '--'.join((stem, flavor))
-    # XXX it would be nice to be able to replace one flavor with another here
-    if stem in old:
-        cmd = 'pkg_add -u {0}'.format(name)
+
+    if 'source' in kwargs:
+         pkgfile = __salt__['file.cache'](kwargs['source'])
     else:
-        cmd = 'pkg_add {0}'.format(name)
+         pkgfile = name
+
+    if 'admin_source' in kwargs:
+        adminfile = __salt__['file.cache'](kwargs['admin_source'])
+    else:
+        # Set the adminfile default variables
+        email=kwargs.get('email', '')
+        instance=kwargs.get('instance', 'overwrite')
+        partial=kwargs.get('partial', 'nocheck')
+        runlevel=kwargs.get('runlevel', 'nocheck')
+        idepend=kwargs.get('idepend', 'nocheck')
+        rdepend=kwargs.get('rdepend', 'nocheck')
+        space=kwargs.get('space', 'nocheck')
+        setuid=kwargs.get('setuid', 'nocheck')
+        conflict=kwargs.get('conflict', 'nocheck')
+        action=kwargs.get('action', 'nocheck')
+        basedir=kwargs.get('basedir', 'default')
+
+        # Make tempfile to hold the adminfile contents.
+        fd, adminfile = tempfile.mkstemp(prefix="salt-")
+   
+        # Write to file then close it.
+        os.write(fd, "email=%s\n" % email)
+        os.write(fd, "instance=%s\n" % instance)
+        os.write(fd, "partial=%s\n" % partial)
+        os.write(fd, "runlevel=%s\n" % runlevel)
+        os.write(fd, "idepend=%s\n" % idepend)
+        os.write(fd, "rdepend=%s\n" % rdepend)
+        os.write(fd, "space=%s\n" % space)
+        os.write(fd, "setuid=%s\n" % setuid)
+        os.write(fd, "conflict=%s\n" % conflict)
+        os.write(fd, "action=%s\n" % action)
+        os.write(fd, "basedir=%s\n" % basedir)
+        os.close(fd)
+
+
+    cmd = '/usr/sbin/pkgadd -n -a {0} -d {1} \'all\''.format(adminfile, pkgfile)
     __salt__['cmd.retcode'](cmd)
-    new = _format_pkgs(_get_pkgs())
-    return _compare_versions(_format_pkgs(old), new)
+
+    #new = _format_pkgs(_get_pkgs())
+    #return name{new} = version(name)
+
+    # Remove the temp adminfile 
+    os.unlink(adminfile)
+
+    return [name] 
 
 
-def remove(name):
+def remove(name, **kwargs):
+    '''
+    Remove a single package with pkgrm
+
+    Returns a list containing the removed packages. Since pkgrm on solaris 
+    does not support dependency management. This will always be just one
+    package.
+
+    CLI Example::
+
+        salt '*' pkg.remove <package name>
+    '''
+
+    # Check to see if the package is installed before we proceed
+    if version(name) == '':
+        return '' 
+
+    # Set the adminfile default variables
+    email=kwargs.get('email', '')
+    instance=kwargs.get('instance', 'overwrite')
+    partial=kwargs.get('partial', 'nocheck')
+    runlevel=kwargs.get('runlevel', 'nocheck')
+    idepend=kwargs.get('idepend', 'nocheck')
+    rdepend=kwargs.get('rdepend', 'nocheck')
+    space=kwargs.get('space', 'nocheck')
+    setuid=kwargs.get('setuid', 'nocheck')
+    conflict=kwargs.get('conflict', 'nocheck')
+    action=kwargs.get('action', 'nocheck')
+    basedir=kwargs.get('basedir', 'default')
+
+    # Make tempfile to hold the adminfile contents.
+    fd, adminfile = tempfile.mkstemp(prefix="salt-")
+   
+    # Write to file then close it.
+    os.write(fd, "email=%s\n" % email)
+    os.write(fd, "instance=%s\n" % instance)
+    os.write(fd, "partial=%s\n" % partial)
+    os.write(fd, "runlevel=%s\n" % runlevel)
+    os.write(fd, "idepend=%s\n" % idepend)
+    os.write(fd, "rdepend=%s\n" % rdepend)
+    os.write(fd, "space=%s\n" % space)
+    os.write(fd, "setuid=%s\n" % setuid)
+    os.write(fd, "conflict=%s\n" % conflict)
+    os.write(fd, "action=%s\n" % action)
+    os.write(fd, "basedir=%s\n" % basedir)
+    os.close(fd)
+
+    # Remove the package
+    cmd = '/usr/sbin/pkgrm -n -a {0} {1}'.format(adminfile, name)
+    __salt__['cmd.retcode'](cmd)
+
+    # Remove the temp adminfile 
+    os.unlink(adminfile)
+
+    # Since pkgrm only removes one pkg at a time just return the package name
+    return [name] 
+
+
+def purge(name, **kwargs):
     '''
     Remove a single package with pkgrm
 
@@ -140,25 +203,6 @@ def remove(name):
 
     CLI Example::
 
-        salt '*' pkg.remove <package name>
-    '''
-    old = _get_pkgs()
-    stem, flavor = (name.split('--') + [''])[:2]
-    if stem in old:
-        cmd = 'pkg_delete -D dependencies {0}'.format(stem)
-        __salt__['cmd.retcode'](cmd)
-    new = _format_pkgs(_get_pkgs())
-    return _list_removed(_format_pkgs(old), new)
-
-
-def purge(name):
-    '''
-    Remove a single package with pkg_delete
-
-    Returns a list containing the removed packages.
-
-    CLI Example::
-
         salt '*' pkg.purge <package name>
     '''
-    return remove(name)
+    return remove(name, **kwargs)
