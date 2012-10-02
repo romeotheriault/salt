@@ -10,7 +10,7 @@ def __virtual__():
     '''
     Set the virtual pkg module if the os is Solaris
     '''
-    if __grains__['os'] == 'SunOS':
+    if __grains__['os'] == 'Solaris':
         return 'pkg'
     return False
 
@@ -27,7 +27,32 @@ def _list_removed(old, new):
     return pkgs
 
 
+def _compare_versions(old, new):
+    '''
+    Returns a dict that that displays old and new versions for a package after
+    install/upgrade of package.
+    '''
+    pkgs = {}
+    for npkg in new:
+        if npkg in old:
+            if old[npkg] == new[npkg]:
+                # no change in the package
+                continue
+            else:
+                # the package was here before and the version has changed
+                pkgs[npkg] = {'old': old[npkg],
+                              'new': new[npkg]}
+        else:
+            # the package is freshly installed
+            pkgs[npkg] = {'old': '',
+                          'new': new[npkg]}
+    return pkgs
+
+
 def _get_pkgs():
+    '''
+    Get a full list of the package installed on the machine
+    '''
     pkg = {}
     cmd = '/usr/bin/pkginfo -x'
 
@@ -124,17 +149,21 @@ def install(name, **kwargs):
         os.write(fd, "basedir=%s\n" % basedir)
         os.close(fd)
 
+    # Get a list of the packages before install so we can diff after to see 
+    # what got installed.
+    old = _get_pkgs()
 
     cmd = '/usr/sbin/pkgadd -n -a {0} -d {1} \'all\''.format(adminfile, pkgfile)
     __salt__['cmd.retcode'](cmd)
 
-    #new = _format_pkgs(_get_pkgs())
-    #return name{new} = version(name)
+    # Get a list of the packages again, including newly installed ones.
+    new = _get_pkgs()
 
     # Remove the temp adminfile 
     os.unlink(adminfile)
 
-    return [name] 
+    # Return a list of the new package installed.
+    return _compare_versions(old, new)
 
 
 def remove(name, **kwargs):
