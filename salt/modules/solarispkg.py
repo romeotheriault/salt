@@ -99,7 +99,7 @@ def version(name):
     return ''
 
 
-def install(name, **kwargs):
+def install(name, refresh=False, **kwargs):
     '''
     Install the passed package. Can install packages from the following sources::
         
