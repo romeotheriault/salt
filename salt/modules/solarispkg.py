@@ -330,3 +330,18 @@ def purge(name, **kwargs):
         salt '*' pkg.purge <package name>
     '''
     return remove(name, **kwargs)
+
+
+
+def available_version(name):
+    '''
+    The available version of the package in the repository
+    On Solaris with the pkg module this always returns the
+    version that is installed since pkgadd does not have
+    the concept of a repository.
+
+    CLI Example::
+
+        salt '*' pkg.available_version <package name>
+    '''
+    return version(name) 
