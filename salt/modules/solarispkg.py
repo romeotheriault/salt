@@ -1,8 +1,6 @@
 '''
 Package support for Solaris
 '''
-# Todo:
-# Document that the name field needs to be set to what the package name is once installed, otherwise installed and latest state runs fail to find the package.
 
 import tempfile
 import os
