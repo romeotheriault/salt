@@ -2,9 +2,7 @@
 Package support for Solaris
 '''
 # Todo:
-# Test with states to make sure it works.
-# How to we deal with upgrade?
-# Have it looked over.
+# Document that the name field needs to be set to what the package name is once installed, otherwise installed and latest state runs fail to find the package.
 
 import tempfile
 import os
@@ -99,6 +97,20 @@ def version(name):
     return ''
 
 
+def available_version(name):
+    '''
+    The available version of the package in the repository
+    On Solaris with the pkg module this always returns the
+    version that is installed since pkgadd does not have
+    the concept of a repository.
+
+    CLI Example::
+
+        salt '*' pkg.available_version <package name>
+    '''
+    return version(name) 
+
+
 def install(name, refresh=False, **kwargs):
     '''
     Install the passed package. Can install packages from the following sources::
@@ -115,16 +127,18 @@ def install(name, refresh=False, **kwargs):
 
     CLI Example, installing a datastream pkg that already exists on the minion::
 
-        salt '*' pkg.install <package name> source=/dir/on/minion/<package name>
-        salt '*' pkg.install gcc-3.3.2-sol10-sparc-local.pkg source=/var/spool/pkg/gcc-3.3.2-sol10-sparc-local.pkg
+        salt '*' pkg.install <package name once installed> source=/dir/on/minion/<package filename>
+        salt '*' pkg.install SMClgcc346 source=/var/spool/pkg/gcc-3.4.6-sol10-sparc-local.pkg
 
     CLI Example, installing a datastream pkg that exists on the salt master::
 
-        salt '*' pkg.install <package name> source='salt://srv/prod/<package name>'
+        salt '*' pkg.install <package name once installed> source='salt://srv/salt/pkgs/<package filename>'
+        salt '*' pkg.install SMClgcc346 source='salt://srv/salt/pkgs/gcc-3.4.6-sol10-sparc-local.pkg'
 
     CLI Example, installing a datastream pkg that exists on a HTTP server::
 
-        salt '*' pkg.install <package name> source='http://packages.server.com/<package name>'
+        salt '*' pkg.install <package name once installed> source='http://packages.server.com/<package filename>'
+        salt '*' pkg.install SMClgcc346 source='http://packages.server.com/gcc-3.4.6-sol10-sparc-local.pkg'
     
     By default salt automatically provides an adminfile, to automate package installation, with these options set:
 
@@ -150,25 +164,25 @@ def install(name, refresh=False, **kwargs):
 
     CLI Example - Overriding the 'instance' adminfile option when calling the module directly:
 
-        salt '*' pkg.install <package name> source='salt://srv/salt/<pkgname>' instance="overwrite"  
+        salt '*' pkg.install <package name once installed> source='salt://srv/salt/pkgs/<package filename>' instance="overwrite"
 
     CLI Example - Overriding the 'instance' adminfile option when used in a state:
 
-        <pkgname>:
+        SMClgcc346:
           pkg.installed:
-            - source: salt://pkgs/<pkgname>
+            - source: salt://srv/salt/pkgs/gcc-3.4.6-sol10-sparc-local.pkg
             - instance: overwrite
 
     CLI Example - Providing your own adminfile when calling the module directly:
 
-        salt '*' pkg.install <package name> source='salt://srv/salt/<pkgname>' admin_source='salt://srv/salt/adminfile'
+        salt '*' pkg.install <package name once installed> source='salt://srv/salt/pkgs/<package filename>' admin_source='salt://srv/salt/pkgs/<adminfile filename>'
     
     CLI Example - Providing your own adminfile when using states:
 
-        <pkgname>:
+        <package name once installed>:
           pkg.installed:
-            - source: salt://srv/salt/<pkgname>
-            - admin_source: salt://srv/salt/adminfile
+            - source: salt://srv/salt/<package filename>
+            - admin_source: salt://srv/salt/<adminfile filename>
     '''
 
     if not 'source' in kwargs:
@@ -318,7 +332,6 @@ def remove(name, **kwargs):
     return _list_removed(old, new)
 
 
-
 def purge(name, **kwargs):
     '''
     Remove a single package with pkgrm
@@ -330,18 +343,3 @@ def purge(name, **kwargs):
         salt '*' pkg.purge <package name>
     '''
     return remove(name, **kwargs)
-
-
-
-def available_version(name):
-    '''
-    The available version of the package in the repository
-    On Solaris with the pkg module this always returns the
-    version that is installed since pkgadd does not have
-    the concept of a repository.
-
-    CLI Example::
-
-        salt '*' pkg.available_version <package name>
-    '''
-    return version(name) 
