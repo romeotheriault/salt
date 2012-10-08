@@ -24,7 +24,6 @@ def _list_removed(old, new):
     for pkg in old:
         if pkg not in new:
             pkgs.append(pkg)
-
     return pkgs
 
 
@@ -179,8 +178,8 @@ def install(name, refresh=False, **kwargs):
 
         <package name once installed>:
           pkg.installed:
-            - source: salt://srv/salt/<package filename>
-            - admin_source: salt://srv/salt/<adminfile filename>
+            - source: salt://srv/salt/pkgs/<package filename>
+            - admin_source: salt://srv/salt/pkgs/<adminfile filename>
     '''
 
     if not 'source' in kwargs:
